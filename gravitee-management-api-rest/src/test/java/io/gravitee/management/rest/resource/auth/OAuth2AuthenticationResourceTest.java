@@ -66,12 +66,10 @@ import static org.mockito.Mockito.verify;
  */
 public class OAuth2AuthenticationResourceTest extends AbstractResourceTest {
 
+    private final static String USER_SOURCE_OAUTH2 = "oauth2";
+
     @Rule
     public WireMockRule wireMockRule = new WireMockRule(wireMockConfig().dynamicPort());
-
-    public OAuth2AuthenticationResourceTest() {
-        super(new Oauth2TestAuthenticationProviderManager());
-    }
 
     protected String contextPath() {
         return "auth/oauth2";
@@ -126,21 +124,22 @@ public class OAuth2AuthenticationResourceTest extends AbstractResourceTest {
         //mock DB find user by name
         UserEntity userEntity = mockUserEntity();
         userEntity.setId("janedoe@example.com");
+        userEntity.setSource(USER_SOURCE_OAUTH2);
+        userEntity.setSourceId("janedoe@example.com");
         userEntity.setPicture("http://example.com/janedoe/me.jpg");
 
-        when(userService.findByUsername("janedoe@example.com",false)).thenReturn(userEntity);
+        when(userService.findBySource(userEntity.getSource(),userEntity.getSourceId(), false)).thenReturn(userEntity);
 
         //mock DB update user picture , firstname ,lastname
         UpdateUserEntity user = new UpdateUserEntity();
-        user.setUsername("janedoe@example.com");
         user.setFirstname("Jane");
         user.setLastname("Doe");
         user.setPicture("http://example.com/janedoe/me.jpg");
 
-        when(userService.update(refEq(user))).thenReturn(userEntity);
+        when(userService.update(userEntity.getId(), refEq(user))).thenReturn(userEntity);
 
         //mock DB user connect
-        when(userService.connect("janedoe@example.com")).thenReturn(userEntity);
+        when(userService.connect(userEntity.getId())).thenReturn(userEntity);
 
 
         // -- CALL
@@ -150,10 +149,10 @@ public class OAuth2AuthenticationResourceTest extends AbstractResourceTest {
         Response response = target().request().post(json(payload));
 
         // -- VERIFY
-        verify(userService, times(1)).findByUsername("janedoe@example.com",false);
+        verify(userService, times(1)).findBySource(userEntity.getSource(),userEntity.getSourceId(), false);
         verify(userService, times(0)).create(any());
-        verify(userService, times(1)).update(refEq(user));
-        verify(userService, times(1)).connect("janedoe@example.com");
+        verify(userService, times(1)).update(userEntity.getSourceId(), refEq(user));
+        verify(userService, times(1)).connect(userEntity.getSourceId());
 
         assertEquals(HttpStatusCode.OK_200, response.getStatus());
 
@@ -213,7 +212,7 @@ public class OAuth2AuthenticationResourceTest extends AbstractResourceTest {
         mockUserInfo(okJson(IOUtils.toString(read("/oauth2/json/user_info_response_body.json"), Charset.defaultCharset())));
 
         //mock DB find user by name
-        when(userService.findByUsername("janedoe@example.com",false)).thenThrow(new UserNotFoundException("janedoe@example.com"));
+        when(userService.findBySource(USER_SOURCE_OAUTH2, "janedoe@example.com",false)).thenThrow(new UserNotFoundException("janedoe@example.com"));
 
         //mock create user
         NewExternalUserEntity newExternalUserEntity = mockNewExternalUserEntity();
@@ -234,10 +233,10 @@ public class OAuth2AuthenticationResourceTest extends AbstractResourceTest {
         Response response = target().request().post(json(payload));
 
         // -- VERIFY
-        verify(userService, times(1)).findByUsername("janedoe@example.com",false);
+        verify(userService, times(1)).findBySource(USER_SOURCE_OAUTH2, "janedoe@example.com",false);
         verify(userService, times(1)).create(refEq(newExternalUserEntity),eq(true));
 
-        verify(userService, times(1)).update(refEq(user));
+        verify(userService, times(1)).update("janedoe@example.com", refEq(user));
         verify(userService, times(1)).connect("janedoe@example.com");
 
         assertEquals(HttpStatusCode.OK_200, response.getStatus());
@@ -265,7 +264,6 @@ public class OAuth2AuthenticationResourceTest extends AbstractResourceTest {
 
     private UpdateUserEntity mockUpdateUserPicture(UserEntity user) {
         UpdateUserEntity updateUserEntity = new UpdateUserEntity();
-        updateUserEntity.setUsername("janedoe@example.com");
         updateUserEntity.setPicture("http://example.com/janedoe/me.jpg");
         updateUserEntity.setFirstname("Jane");
         updateUserEntity.setLastname("Doe");
@@ -274,7 +272,7 @@ public class OAuth2AuthenticationResourceTest extends AbstractResourceTest {
         //user.setFirstname("Jane");
         //user.setLastname("Doe");
 
-        when(userService.update(refEq(updateUserEntity))).thenReturn(user);
+        when(userService.update(user.getId(), refEq(updateUserEntity))).thenReturn(user);
         return updateUserEntity;
     }
 
@@ -285,8 +283,7 @@ public class OAuth2AuthenticationResourceTest extends AbstractResourceTest {
     private UserEntity mockUserEntity() {
         UserEntity createdUser = new UserEntity();
         createdUser.setId("janedoe@example.com");
-        createdUser.setUsername("janedoe@example.com");
-        createdUser.setSource(AuthenticationSource.OAUTH2.getName());
+        createdUser.setSource(USER_SOURCE_OAUTH2);
         createdUser.setSourceId("248289761001");
         createdUser.setLastname("Doe");
         createdUser.setFirstname("Jane");
@@ -297,8 +294,7 @@ public class OAuth2AuthenticationResourceTest extends AbstractResourceTest {
 
     private NewExternalUserEntity mockNewExternalUserEntity() {
         NewExternalUserEntity newExternalUserEntity = new NewExternalUserEntity();
-        newExternalUserEntity.setUsername("janedoe@example.com");
-        newExternalUserEntity.setSource(AuthenticationSource.OAUTH2.getName());
+        newExternalUserEntity.setSource(USER_SOURCE_OAUTH2);
         newExternalUserEntity.setSourceId("248289761001");
         newExternalUserEntity.setLastname("Doe");
         newExternalUserEntity.setFirstname("Jane");
@@ -327,9 +323,9 @@ public class OAuth2AuthenticationResourceTest extends AbstractResourceTest {
         Response response = target().request().post(json(payload));
 
         // -- VERIFY
-        verify(userService, times(0)).findByUsername(anyString(), anyBoolean());
+        verify(userService, times(0)).findBySource(USER_SOURCE_OAUTH2, anyString(), anyBoolean());
         verify(userService, times(0)).create(any());
-        verify(userService, times(0)).update(any());
+        verify(userService, times(0)).update(anyString(), any());
         verify(userService, times(0)).connect(anyString());
 
         assertEquals(HttpStatusCode.UNAUTHORIZED_401, response.getStatus());
@@ -361,9 +357,9 @@ public class OAuth2AuthenticationResourceTest extends AbstractResourceTest {
         Response response = target().request().post(json(payload));
 
         // -- VERIFY
-        verify(userService, times(0)).findByUsername(anyString(), anyBoolean());
+        verify(userService, times(0)).findBySource(USER_SOURCE_OAUTH2, anyString(), anyBoolean());
         verify(userService, times(0)).create(any());
-        verify(userService, times(0)).update(any());
+        verify(userService, times(0)).update(anyString(), any());
         verify(userService, times(0)).connect(anyString());
 
         assertEquals(HttpStatusCode.BAD_REQUEST_400, response.getStatus());
@@ -432,7 +428,7 @@ public class OAuth2AuthenticationResourceTest extends AbstractResourceTest {
         mockUserInfo(okJson(IOUtils.toString(read("/oauth2/json/user_info_response_body.json"), Charset.defaultCharset())));
 
         //mock DB find user by name
-        when(userService.findByUsername("janedoe@example.com",false)).thenThrow(new UserNotFoundException("janedoe@example.com"));
+        when(userService.findBySource(USER_SOURCE_OAUTH2, "janedoe@example.com",false)).thenThrow(new UserNotFoundException("janedoe@example.com"));
 
         //mock create user
         NewExternalUserEntity newExternalUserEntity = mockNewExternalUserEntity();
@@ -503,10 +499,10 @@ public class OAuth2AuthenticationResourceTest extends AbstractResourceTest {
         Response response = target().request().post(json(payload));
 
         // -- VERIFY
-        verify(userService, times(1)).findByUsername("janedoe@example.com",false);
+        verify(userService, times(1)).findBySource(USER_SOURCE_OAUTH2, "janedoe@example.com",false);
         verify(userService, times(1)).create(refEq(newExternalUserEntity),eq(true));
 
-        verify(userService, times(1)).update(refEq(updateUserEntity));
+        verify(userService, times(1)).update("janedoe@example.com", refEq(updateUserEntity));
         verify(userService, times(1)).connect("janedoe@example.com");
 
         //verify group creations
@@ -585,7 +581,7 @@ public class OAuth2AuthenticationResourceTest extends AbstractResourceTest {
         mockUserInfo(okJson(IOUtils.toString(read("/oauth2/json/user_info_response_body_no_matching.json"), Charset.defaultCharset())));
 
         //mock DB find user by name
-        when(userService.findByUsername("janedoe@example.com",false)).thenThrow(new UserNotFoundException("janedoe@example.com"));
+        when(userService.findBySource(USER_SOURCE_OAUTH2, "janedoe@example.com",false)).thenThrow(new UserNotFoundException("janedoe@example.com"));
 
         //mock create user
         NewExternalUserEntity newExternalUserEntity = mockNewExternalUserEntity();
@@ -606,10 +602,10 @@ public class OAuth2AuthenticationResourceTest extends AbstractResourceTest {
         Response response = target().request().post(json(payload));
 
         // -- VERIFY
-        verify(userService, times(1)).findByUsername("janedoe@example.com",false);
+        verify(userService, times(1)).findBySource(USER_SOURCE_OAUTH2, "janedoe@example.com",false);
         verify(userService, times(1)).create(refEq(newExternalUserEntity),eq(true));
 
-        verify(userService, times(1)).update(refEq(updateUserEntity));
+        verify(userService, times(1)).update("janedoe@example.com", refEq(updateUserEntity));
         verify(userService, times(1)).connect("janedoe@example.com");
 
         //verify group creations
@@ -642,7 +638,7 @@ public class OAuth2AuthenticationResourceTest extends AbstractResourceTest {
         mockUserInfo(okJson(IOUtils.toString(read("/oauth2/json/user_info_response_body.json"), Charset.defaultCharset())));
 
         //mock DB find user by name
-        when(userService.findByUsername("janedoe@example.com",false)).thenThrow(new UserNotFoundException("janedoe@example.com"));
+        when(userService.findBySource(USER_SOURCE_OAUTH2, "janedoe@example.com",false)).thenThrow(new UserNotFoundException("janedoe@example.com"));
 
         //mock group search and association
         when(groupService.findByName("Example group")).thenReturn(Collections.emptyList());
@@ -661,10 +657,10 @@ public class OAuth2AuthenticationResourceTest extends AbstractResourceTest {
         Response response = target().request().post(json(payload));
 
         // -- VERIFY
-        verify(userService, times(1)).findByUsername("janedoe@example.com",false);
+        verify(userService, times(1)).findBySource(USER_SOURCE_OAUTH2, "janedoe@example.com",false);
         verify(userService, times(0)).create(any(NewExternalUserEntity.class),anyBoolean());
 
-        verify(userService, times(0)).update(any(UpdateUserEntity.class));
+        verify(userService, times(0)).update(any(String.class), any(UpdateUserEntity.class));
         verify(userService, times(0)).connect(anyString());
 
         //verify group creations
@@ -695,7 +691,7 @@ public class OAuth2AuthenticationResourceTest extends AbstractResourceTest {
         mockUserInfo(okJson(IOUtils.toString(read("/oauth2/json/user_info_response_body.json"), Charset.defaultCharset())));
 
         //mock DB find user by name
-        when(userService.findByUsername("janedoe@example.com",false)).thenThrow(new UserNotFoundException("janedoe@example.com"));
+        when(userService.findBySource(USER_SOURCE_OAUTH2, "janedoe@example.com",false)).thenThrow(new UserNotFoundException("janedoe@example.com"));
 
         NewExternalUserEntity newExternalUserEntity = mockNewExternalUserEntity();
         UserEntity createdUser = mockUserEntity();
@@ -708,10 +704,10 @@ public class OAuth2AuthenticationResourceTest extends AbstractResourceTest {
         Response response = target().request().post(json(payload));
 
         // -- VERIFY
-        verify(userService, times(1)).findByUsername("janedoe@example.com",false);
+        verify(userService, times(1)).findBySource(USER_SOURCE_OAUTH2,"janedoe@example.com",false);
         verify(userService, times(0)).create(any(NewExternalUserEntity.class),anyBoolean());
 
-        verify(userService, times(0)).update(any(UpdateUserEntity.class));
+        verify(userService, times(0)).update(any(String.class), any(UpdateUserEntity.class));
         verify(userService, times(0)).connect(anyString());
 
         //verify group creations

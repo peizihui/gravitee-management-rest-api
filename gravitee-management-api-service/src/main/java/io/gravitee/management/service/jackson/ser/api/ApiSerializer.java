@@ -135,8 +135,7 @@ public abstract class ApiSerializer extends StdSerializer<ApiEntity> {
             if (members != null) {
                 members.forEach(m -> {
                     m.setId(null);
-                    m.setFirstname(null);
-                    m.setLastname(null);
+                    m.setDisplayName(null);
                     m.setEmail(null);
                     m.setPermissions(null);
                     m.setCreatedAt(null);

@@ -43,6 +43,7 @@ import io.gravitee.management.model.permissions.SystemRole;
 import io.gravitee.management.model.plan.PlanQuery;
 import io.gravitee.management.service.*;
 import io.gravitee.management.service.exceptions.*;
+import io.gravitee.management.service.impl.search.SearchResult;
 import io.gravitee.management.service.jackson.ser.api.ApiSerializer;
 import io.gravitee.management.service.notification.ApiHook;
 import io.gravitee.management.service.notification.HookScope;
@@ -779,7 +780,7 @@ public class ApiServiceImpl extends TransactionalService implements ApiService {
                 createdOrUpdatedApiEntity = update(apiEntity.getId(), importedApi);
                 members = membershipService.getMembers(MembershipReferenceType.API, apiEntity.getId(), RoleScope.API)
                         .stream()
-                        .map(member -> new MemberToImport(member.getUsername(), member.getRole())).collect(Collectors.toSet());
+                        .map(member -> new MemberToImport(member.getEmail(), member.getRole())).collect(Collectors.toSet());
             }
 
             // Read the whole definition
@@ -1025,8 +1026,8 @@ public class ApiServiceImpl extends TransactionalService implements ApiService {
                 .setFilters(filters)
                 .build();
 
-        Collection<String> matchApis = searchEngineService.search(apiQuery);
-        return matchApis.stream().map(this::findById).collect(toList());
+        SearchResult matchApis = searchEngineService.search(apiQuery);
+        return matchApis.getDocuments().stream().map(this::findById).collect(toList());
     }
 
     @Override

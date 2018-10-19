@@ -166,13 +166,13 @@ public class ApiService_ExportAsJsonTest {
         when(membershipRepository.findByReferenceAndRole(eq(MembershipReferenceType.API), eq(API_ID), any(), any()))
                 .thenReturn(Collections.singleton(membership));
         MemberEntity memberEntity = new MemberEntity();
-        memberEntity.setUsername(membership.getUserId());
+        memberEntity.setId(membership.getUserId());
         memberEntity.setRole(SystemRole.PRIMARY_OWNER.name());
         when(membershipService.getMembers(eq(MembershipReferenceType.API), eq(API_ID), eq(RoleScope.API)))
                 .thenReturn(Collections.singleton(memberEntity));
         UserEntity userEntity = new UserEntity();
-        userEntity.setUsername(memberEntity.getId());
-        when(userService.findByUsername(memberEntity.getId(), false)).thenReturn(userEntity);
+        userEntity.setId(memberEntity.getId());
+//        when(userService.findByUsername(memberEntity.getId(), false)).thenReturn(userEntity);
 
         api.setGroups(Collections.singleton("my-group"));
         GroupEntity groupEntity = new GroupEntity();
