@@ -678,6 +678,7 @@ public class PageServiceImpl extends TransactionalService implements PageService
         pageItem.setType(PageType.valueOf(page.getType().toString()));
         pageItem.setOrder(page.getOrder());
         pageItem.setLastContributor(page.getLastContributor());
+        pageItem.setUpdatedAt(page.getUpdatedAt());
         pageItem.setPublished(page.isPublished());
         pageItem.setHomepage(page.isHomepage());
         pageItem.setSource(convert(page.getSource()));
